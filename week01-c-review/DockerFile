@@ -1,0 +1,5 @@
+FROM gcc:14
+WORKDIR /app
+COPY . .
+RUN gcc -Wall -Wextra -g main.c linked_list.c -o linked_list
+CMD ["./linked_list"]
