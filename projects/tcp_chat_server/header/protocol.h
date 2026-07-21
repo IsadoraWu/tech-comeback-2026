@@ -17,8 +17,8 @@ typedef enum
 
 int protocol_send(int socket_fd, const char *message);
 int protocol_recv(int socket_fd, char *buffer, size_t buffer_size);
-char *protocol_format_text(const char *username, const char *message);
-char *protocol_format_system(const char *message);
-char *protocol_format_error(const char *message);
+int protocol_format_text(char *buffer, size_t buffer_size, const char *username, const char *message);
+int protocol_format_system(char *buffer, size_t buffer_size, const char *message);
+int protocol_format_error(char *buffer, size_t buffer_size, const char *message);
 
 #endif
