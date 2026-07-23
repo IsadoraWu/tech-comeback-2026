@@ -3,15 +3,67 @@
 #include <unistd.h>
 
 #include "protocol.h"
+#include "client.h"
 
 int main(void)
 {
-    char buffer_empty[MAX_MESSAGE_LENGTH] = {"\0"};
     char buffer_hola[MAX_MESSAGE_LENGTH] = {"Hola"};
-    char buffer_user[MAX_MESSAGE_LENGTH] = {"Isadora"};
+    char buffer_user1[MAX_USERNAME_LENGTH] = {"Isadora"};
+    char buffer_user2[MAX_USERNAME_LENGTH] = {"Miday"};
+    char welcome_buffer[MAX_MESSAGE_LENGTH] = {"\0"};
+    char send_buffer[MAX_MESSAGE_LENGTH] = {"\0"};
     char recv_buffer[MAX_MESSAGE_LENGTH] = {"\0"};
+    int socket_fd1 = client_connect_to_server("localhost", 12345);
+    int socket_fd2 = client_connect_to_server("localhost", 12345);
 
-    int sockets[2];
+    if(socket_fd1 < 0 || socket_fd2 < 0)
+    {
+        printf("Failed to connect to server. Exiting...\n");
+        return -1;
+    }
+    else
+    {
+        printf("Connected to server successfully. Continuing...\n");
+    }
+
+    st_Client *client1 = client_create(socket_fd1, buffer_user1);
+    st_Client *client2 = client_create(socket_fd2, buffer_user2);
+    if(client1 == NULL || client2 == NULL)
+    {
+        printf("Failed to create clients. Exiting...\n");
+        return -1;
+    }
+    else
+    {
+        snprintf(welcome_buffer, sizeof(welcome_buffer), "Welcome to the chat, %s!", buffer_user1);
+        protocol_format_system(send_buffer, sizeof(send_buffer), welcome_buffer); // Format welcome message for client1
+        client_send_message(client1, send_buffer);
+        client_recv_message(client1, recv_buffer, sizeof(recv_buffer));
+        printf("%s\n", recv_buffer);
+
+        snprintf(welcome_buffer, sizeof(welcome_buffer), "Welcome to the chat, %s!", buffer_user2);
+        protocol_format_system(send_buffer, sizeof(send_buffer), welcome_buffer); // Format welcome message for client2
+        client_send_message(client2, send_buffer);
+        client_recv_message(client2, recv_buffer, sizeof(recv_buffer));
+        printf("%s\n", recv_buffer);
+    }
+
+    protocol_format_text(send_buffer, sizeof(send_buffer), buffer_user1, buffer_hola);
+    client_send_message(client1, send_buffer);
+    client_recv_message(client2, recv_buffer, sizeof(recv_buffer));
+    printf("%s\n", recv_buffer);
+
+    if(client_destroy(client1) != 0 || client_destroy(client2) != 0)
+    {
+        printf("Failed to destroy clients. Exiting...\n");
+        return -1;
+    }
+    else
+    {
+        printf("Clients destroyed successfully. Exiting...\n");
+    }
+
+/*    int sockets[2];
 
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) < 0)
     {
@@ -66,6 +118,6 @@ int main(void)
 
     close(sockets[0]);
     close(sockets[1]);
-
+*/
     return 0;
 }

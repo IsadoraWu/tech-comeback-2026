@@ -6,24 +6,29 @@ A command-line TCP chat server written in C for Linux.
 
 ### Completed
 
-- Protocol module
-- Message formatting
-- Socket send/receive wrapper
-- Partial `send()` handling
+- Protocol module with framed send/receive flow
+- Message formatting helpers for text, system, and error messages
+- Socket send/receive wrapper for client-side communication
+- Partial `send()` / `recv()` handling with retry logic
+- Basic client-side socket connection helper
+- Basic client data structure and message wrapper functions
 
 ### In Progress
 
-- Blocking TCP server
-- Protocol testing
+- TCP server socket lifecycle (`socket()` / `bind()` / `listen()` / `accept()`)
+- Multi-client connection management
+- Broadcast and per-client message dispatch
+- POSIX thread integration for client handlers
+- Protocol validation and system-message test flow
 
 ### Planned
 
-- Multi-client support
-- Broadcast messages
-- POSIX threads
-- `/list` and `/quit`
-- Docker
-- GitHub Actions
+- Multi-client chat room behavior
+- Thread synchronization and client list management
+- `/list` and `/quit` commands
+- Unit/integration testing for full end-to-end flow
+- Docker support
+- GitHub Actions CI
 
 ## Tech Stack
 
@@ -37,8 +42,8 @@ A command-line TCP chat server written in C for Linux.
 ## Roadmap
 
 - [x] Protocol module
-- [ ] TCP Server
-- [ ] TCP Client
+- [ ] TCP server foundation
+- [x] TCP client connection helpers
 - [ ] Multi-client chat
 - [ ] Thread synchronization
 - [ ] Testing
