@@ -9,15 +9,20 @@
 
 st_Client *client_create(int socket_fd, const char *username)
 {
-    st_Client *new_client = (st_Client *)malloc(sizeof(st_Client));
-    if(new_client == NULL || username == NULL)
+    if(username == NULL)
+    {
+        return NULL;
+    }
+    st_Client *new_client = (st_Client *)malloc(sizeof(*new_client));
+
+    if(new_client == NULL)
     {
         return NULL;
     }
     new_client->socket_fd = socket_fd;
     strncpy(new_client->username, username, MAX_USERNAME_LENGTH - 1);
     new_client->username[MAX_USERNAME_LENGTH - 1] = '\0';
-    new_client->connected = 0;
+    new_client->connected = 1;
     new_client->thread = 0;
 
     return new_client;
@@ -26,6 +31,11 @@ int client_destroy(st_Client *client)
 {
     if (client != NULL)
     {
+        if (client->socket_fd >= 0)
+        {
+            close(client->socket_fd);
+            client->socket_fd = -1;
+        }
         free(client);
         return 0;
     }
@@ -90,6 +100,10 @@ int client_connect_to_server(const char *host, int port)
 }
 void *client_receive_loop(void *arg)
 {
+    if (arg == NULL)
+    {
+        return NULL;
+    }
     st_Client *client = (st_Client *)arg;
     char buffer[MAX_MESSAGE_LENGTH];
 

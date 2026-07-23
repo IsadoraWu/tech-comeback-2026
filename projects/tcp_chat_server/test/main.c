@@ -13,8 +13,8 @@ int main(void)
     char welcome_buffer[MAX_MESSAGE_LENGTH] = {"\0"};
     char send_buffer[MAX_MESSAGE_LENGTH] = {"\0"};
     char recv_buffer[MAX_MESSAGE_LENGTH] = {"\0"};
-    int socket_fd1 = client_connect_to_server("localhost", 12345);
-    int socket_fd2 = client_connect_to_server("localhost", 12345);
+    int socket_fd1 = client_connect_to_server("127.0.0.1", 12345);
+    int socket_fd2 = client_connect_to_server("127.0.0.1", 12345);
 
     if(socket_fd1 < 0 || socket_fd2 < 0)
     {
