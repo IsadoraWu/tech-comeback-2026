@@ -13,7 +13,7 @@ st_Client *client_create(int socket_fd, const char *username)
     {
         return NULL;
     }
-    st_Client *new_client = (st_Client *)malloc(sizeof(*new_client));
+    st_Client *new_client = malloc(sizeof(*new_client));
 
     if(new_client == NULL)
     {

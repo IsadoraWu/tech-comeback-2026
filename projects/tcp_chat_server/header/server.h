@@ -6,6 +6,8 @@
 #include "client.h"
 #include "protocol.h"
 
+#define MAX_CLIENTS 256
+
 typedef struct
 {
     int server_socket;
