@@ -1,8 +1,15 @@
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
 #include "server.h"
 
 int server_init(st_Server *server, int port)
 {
-    if (server == NULL || port <= 0)
+    if (server == NULL)
     {
         return -1;
     }
@@ -11,13 +18,32 @@ int server_init(st_Server *server, int port)
     server->port = port;
     server->num_clients = 0;
     server->max_clients = MAX_CLIENTS;
-    server->clients_list = malloc(sizeof(st_Client) * server->max_clients);
-    if (server->clients == NULL)
+    server->clients_list = NULL;
+    server->mutex_initialized = false;
+
+    if (port <= 0)
     {
         return -1;
     }
 
-    pthread_mutex_init(&server->clients_mutex, NULL);
+    server->clients_list = malloc(sizeof(*server->clients_list) * server->max_clients);
+    if (server->clients_list == NULL)
+    {
+        return -1;
+    }
+
+    for (int i = 0; i < server->max_clients; i++)
+    {
+        server->clients_list[i] = NULL;
+    }
+
+    if (pthread_mutex_init(&server->clients_mutex, NULL) != 0)
+    {
+        free(server->clients_list);
+        server->clients_list = NULL;
+        return -1;
+    }
+    server->mutex_initialized = true;
 
     return 0;
 }
@@ -30,10 +56,20 @@ void server_cleanup(st_Server *server)
         return;
     }
 
-    pthread_mutex_destroy(&server->clients_mutex);
+    if (server->mutex_initialized)
+    {
+        pthread_mutex_destroy(&server->clients_mutex);
+        server->mutex_initialized = false;
+    }
 
     if (server->clients_list != NULL)
     {
+        for (int i = 0; i < server->num_clients; i++)
+        {
+            client_destroy(server->clients_list[i]);
+            server->clients_list[i] = NULL;
+        }
+        server->num_clients = 0;
         free(server->clients_list);
         server->clients_list = NULL;
     }
@@ -60,12 +96,14 @@ int server_start(st_Server *server)
     if (bind(server->server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
         close(server->server_socket);
+        server->server_socket = -1;
         return -1;
     }
 
     if (listen(server->server_socket, server->max_clients) < 0)
     {
         close(server->server_socket);
+        server->server_socket = -1;
         return -1;
     }
 
@@ -118,9 +156,14 @@ int server_add_client(st_Server *server, int client_socket)
         return -1;
     }
 
-    st_Client *new_client = &server->clients_list[server->num_clients];
-    new_client->socket_fd = client_socket;
-    new_client->next = NULL;
+    st_Client *new_client = client_create(client_socket, "");
+    if (new_client == NULL)
+    {
+        pthread_mutex_unlock(&server->clients_mutex);
+        return -1;
+    }
+
+    server->clients_list[server->num_clients] = new_client;
 
     server->num_clients++;
 

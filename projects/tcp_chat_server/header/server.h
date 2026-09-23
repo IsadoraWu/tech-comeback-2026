@@ -2,6 +2,7 @@
 #define SERVER_H
 
 #include <pthread.h>
+#include <stdbool.h>
 
 #include "client.h"
 #include "protocol.h"
@@ -12,10 +13,11 @@ typedef struct
 {
     int server_socket;
     int port;
-    st_Client *clients;
+    st_Client **clients_list;
     int num_clients;
     int max_clients;
     pthread_mutex_t clients_mutex;
+    bool mutex_initialized;
 } st_Server;
 
 int server_init(st_Server *server, int port);
