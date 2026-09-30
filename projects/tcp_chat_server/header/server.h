@@ -26,6 +26,8 @@ int server_start(st_Server *server);
 void server_stop(st_Server *server);
 int server_accept_client(st_Server *server);
 int server_add_client(st_Server *server, int client_socket);
+/* Borrows a registered client; the server retains ownership. */
+void server_echo_client(st_Client *client);
 int server_remove_client(st_Server *server, int client_socket);
 int server_broadcast(st_Server *server, const char *message, int sender_socket);
 int server_send_to_client(st_Server *server, int client_socket, const char *message);

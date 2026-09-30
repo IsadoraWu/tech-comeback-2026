@@ -171,6 +171,32 @@ int server_add_client(st_Server *server, int client_socket)
 
     return 0;
 }
+void server_echo_client(st_Client *client)
+{
+    if (client == NULL || client->socket_fd < 0)
+    {
+        return;
+    }
+
+    char buffer[MAX_MESSAGE_LENGTH + 1];
+
+    while (client->connected)
+    {
+        /* The existing protocol reports both EOF and receive errors as -1. */
+        int received = protocol_recv(client->socket_fd, buffer, sizeof(buffer));
+        if (received < 0)
+        {
+            client->connected = 0;
+            break;
+        }
+
+        if (protocol_send(client->socket_fd, buffer) < 0)
+        {
+            client->connected = 0;
+            break;
+        }
+    }
+}
 int server_remove_client(st_Server *server, int client_socket);
 int server_broadcast(st_Server *server, const char *message, int sender_socket);
 int server_send_to_client(st_Server *server, int client_socket, const char *message);
