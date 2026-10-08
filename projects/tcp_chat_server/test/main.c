@@ -1,123 +1,155 @@
+#include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
-#include <sys/socket.h>
+#include <stdlib.h>
 #include <unistd.h>
 
-#include "protocol.h"
 #include "client.h"
+#include "protocol.h"
+
+#define MAX_COMMAND_LENGTH 512
+
+static int echo_segment(st_Client *client, char *buffer, size_t length)
+{
+    char reply[MAX_MESSAGE_LENGTH + 1];
+    buffer[length] = '\0';
+
+    if (client_send_message(client, buffer) < 0)
+    {
+        return -1;
+    }
+    int received = client_recv_message(client, reply, sizeof(reply));
+    if (received < 0)
+    {
+        return -1;
+    }
+
+    if (fwrite(reply, 1, (size_t)received, stdout) != (size_t)received ||
+        fflush(stdout) == EOF)
+    {
+        return -1;
+    }
+    return 0;
+}
+
+static int run_message_loop(st_Client *client)
+{
+    char buffer[MAX_MESSAGE_LENGTH + 1];
+    size_t length = 0;
+    char command_buffer[MAX_COMMAND_LENGTH];
+    size_t command_length = 0;
+    bool command_overflow = false;
+    bool line_start = true;
+    bool command = false;
+    int ch;
+
+    for (;;)
+    {
+        ch = fgetc(stdin);
+        if (ch == EOF && ferror(stdin))
+        {
+            return -1;
+        }
+
+        if (ch == '\n' || ch == EOF)
+        {
+            if (command && !command_overflow && command_length == 2 &&
+                command_buffer[0] == '/' && command_buffer[1] == 'q')
+            {
+                return 0;
+            }
+            if (!line_start && !command)
+            {
+                if (length > 0 && echo_segment(client, buffer, length) < 0)
+                {
+                    return -1;
+                }
+                if (putchar('\n') == EOF || fflush(stdout) == EOF)
+                {
+                    return -1;
+                }
+            }
+            if (ch == EOF)
+            {
+                return 0;
+            }
+            length = 0;
+            line_start = true;
+            command = false;
+            command_length = 0;
+            command_overflow = false;
+            continue;
+        }
+
+        if (line_start)
+        {
+            command = (ch == '/');
+            line_start = false;
+        }
+        /* Never send commands; discard excess bytes until the line ends. */
+        if (command)
+        {
+            if (command_length < MAX_COMMAND_LENGTH)
+            {
+                command_buffer[command_length++] = (char)ch;
+            }
+            else
+            {
+                command_overflow = true;
+            }
+            continue;
+        }
+
+        buffer[length++] = (char)ch;
+        if (length == MAX_MESSAGE_LENGTH)
+        {
+            if (echo_segment(client, buffer, length) < 0)
+            {
+                return -1;
+            }
+            length = 0;
+        }
+    }
+}
 
 int main(void)
 {
-    char buffer_hola[MAX_MESSAGE_LENGTH] = {"Hola"};
-    char buffer_user1[MAX_USERNAME_LENGTH] = {"Isadora"};
-    char buffer_user2[MAX_USERNAME_LENGTH] = {"Miday"};
-    char welcome_buffer[MAX_MESSAGE_LENGTH] = {"\0"};
-    char send_buffer[MAX_MESSAGE_LENGTH] = {"\0"};
-    char recv_buffer[MAX_MESSAGE_LENGTH] = {"\0"};
-    int socket_fd1 = client_connect_to_server("127.0.0.1", 12345);
-    int socket_fd2 = client_connect_to_server("127.0.0.1", 12345);
-
-    if(socket_fd1 < 0 || socket_fd2 < 0)
+    if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
     {
-        printf("Failed to connect to server. Exiting...\n");
-        return -1;
+        printf("Unexpected error\n");
+        return EXIT_FAILURE;
+    }
+
+    int socket_fd = client_connect_to_server("127.0.0.1", 12345);
+    if (socket_fd < 0)
+    {
+        printf("Connected Failed...\n");
+        return EXIT_FAILURE;
+    }
+
+    st_Client *client = client_create(socket_fd, "");
+    if (client == NULL)
+    {
+        close(socket_fd);
+        printf("Connected Failed...\n");
+        return EXIT_FAILURE;
+    }
+
+    printf("Connected\n");
+
+    int result = EXIT_SUCCESS;
+    if (fflush(stdout) == EOF || run_message_loop(client) < 0)
+    {
+        printf("Unexpected error\n");
+        result = EXIT_FAILURE;
+    }
+    if (client_destroy(client) != 0)
+    {
+        result = EXIT_FAILURE;
     }
     else
     {
-        printf("Connected to server successfully. Continuing...\n");
+        printf("Disconnected\n");
     }
-
-    st_Client *client1 = client_create(socket_fd1, buffer_user1);
-    st_Client *client2 = client_create(socket_fd2, buffer_user2);
-    if(client1 == NULL || client2 == NULL)
-    {
-        printf("Failed to create clients. Exiting...\n");
-        return -1;
-    }
-    else
-    {
-        snprintf(welcome_buffer, sizeof(welcome_buffer), "Welcome to the chat, %s!", buffer_user1);
-        protocol_format_system(send_buffer, sizeof(send_buffer), welcome_buffer); // Format welcome message for client1
-        client_send_message(client1, send_buffer);
-        client_recv_message(client1, recv_buffer, sizeof(recv_buffer));
-        printf("%s\n", recv_buffer);
-
-        snprintf(welcome_buffer, sizeof(welcome_buffer), "Welcome to the chat, %s!", buffer_user2);
-        protocol_format_system(send_buffer, sizeof(send_buffer), welcome_buffer); // Format welcome message for client2
-        client_send_message(client2, send_buffer);
-        client_recv_message(client2, recv_buffer, sizeof(recv_buffer));
-        printf("%s\n", recv_buffer);
-    }
-
-    protocol_format_text(send_buffer, sizeof(send_buffer), buffer_user1, buffer_hola);
-    client_send_message(client1, send_buffer);
-    client_recv_message(client2, recv_buffer, sizeof(recv_buffer));
-    printf("%s\n", recv_buffer);
-
-    if(client_destroy(client1) != 0 || client_destroy(client2) != 0)
-    {
-        printf("Failed to destroy clients. Exiting...\n");
-        return -1;
-    }
-    else
-    {
-        printf("Clients destroyed successfully. Exiting...\n");
-    }
-
-/*    int sockets[2];
-
-    if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) < 0)
-    {
-        perror("socketpair");
-        return 1;
-    }
-
-    if(protocol_send(sockets[0], buffer_empty) != 0)
-    {
-        printf("Send failed for empty message. Continuing...\n");
-    }
-    else
-    {
-        printf("Empty message sent successfully.\n");
-        int received = protocol_recv(sockets[1], recv_buffer, sizeof(recv_buffer));
-        if (received < 0)
-        {
-            fprintf(stderr, "protocol_recv failed\n");
-        }
-        else
-        {
-            printf("Received: %s\n", recv_buffer);
-        }
-    }
-
-    if(protocol_send(sockets[0], buffer_hola) != 0)
-    {
-        printf("Send failed for 'Hola' message. Continuing...\n");
-    }
-    else
-    {
-        printf("'Hola' message sent successfully.\n");
-        int received = protocol_recv(sockets[1], recv_buffer, sizeof(recv_buffer));
-        if (received < 0)
-        {
-            fprintf(stderr, "protocol_recv failed\n");
-        }
-        else
-        {
-            printf("Received: %s\n", recv_buffer);
-        }
-    }
-
-    if(protocol_format_text(recv_buffer, sizeof(recv_buffer), buffer_user, buffer_hola) != 0)
-    {
-        printf("Format text failed. Continuing...\n");
-    }
-    else
-    {
-        printf("Formatted text: %s\n", recv_buffer);
-    }
-
-    close(sockets[0]);
-    close(sockets[1]);
-*/
-    return 0;
+    return result;
 }
