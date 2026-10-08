@@ -1,44 +1,34 @@
-# TCP Chat Server — Single-client Blocking Echo
+# TCP Chat Server
 
-## Project Overview
+## Overview
 
-A C networking project for Linux, currently implemented as a single-client TCP echo server. This completed sprint focuses on message framing, explicit socket ownership, resource cleanup, and acceptance-driven development as a foundation for a future chat server.
+A TCP echo application written in C for Linux. The server handles one connection at a time within a single session, and an interactive CLI client sends text and displays the echoed response. The current implementation uses blocking I/O and exits the server after that client disconnects.
+
+## Features
+
+- Automatic client connection to `127.0.0.1:12345`.
+- Interactive text input with spaces preserved and successive messages on one connection.
+- Long messages split into 512-byte frames, with echoes displayed as one logical line.
+- Local `/q` command and stdin EOF to disconnect; connection and error status messages.
+- Explicit socket ownership and cleanup, with completed Sprint 1 and Sprint 2 acceptance tests.
 
 ## Tech Stack
 
-C · Linux/WSL2 · POSIX Sockets · TCP/IP · Make · Git · Codex
+C (C11) · Linux/WSL2 · POSIX TCP Sockets · Makefile · Git
 
-## Current Scope
+## Architecture
 
-One TCP connection per process, blocking I/O, and repeated text Echo on the same connection. After the Client disconnects, the Server cleans up and exits.
+```text
+CLI (test/main.c) → Client helpers → Length-prefixed TCP → Server Echo
+```
 
-## Protocol
+Both processes use the same protocol module. No worker threads are created. See [Architecture](docs/architecture.md) and [Protocol](docs/protocol.md).
 
-**4-byte network-order (big-endian) payload length + payload.** The C-string API handles partial TCP transfers; plain-text `nc` input is not compatible.
+## Quick Start
 
-## Key Engineering Decisions
+Requires GCC, Make, and POSIX development libraries on Linux/WSL2.
 
-- **Explicit socket ownership:** the caller owns an accepted socket until registration succeeds.
-- **Server-owned clients:** registration uses `client_create()` and stores each `st_Client *`; Echo borrows it. Cleanup uses `client_destroy()` to close its socket and free the object, and also releases the collection and listener.
-- **Explicit mutex state:** `mutex_initialized` tracks initialization independently of Client storage, so cleanup only destroys an initialized mutex.
-- **Deliberate scope:** establish single-client, blocking behavior and resource ownership before introducing concurrency.
-
-`initialize → listen → accept once → register → Echo → disconnect → cleanup → exit`
-
-## Architecture / Component Responsibilities
-
-| Component | Responsibility |
-|---|---|
-| [main.c](src/main.c) | Application lifecycle and failure cleanup. |
-| [server.c](src/server.c) | Listening, registration, Client collection, and Echo. |
-| [client.c](src/client.c) | Client objects, connection helpers, and message wrappers. |
-| [protocol.c](src/protocol.c) | Message framing and socket transfers. |
-
-## Build / Run
-
-Requires GCC (C11), Make, and POSIX development libraries on Linux/WSL2.
-
-From the repository root:
+From the repository root, build and start the server in terminal 1:
 
 ```bash
 cd projects/tcp_chat_server
@@ -46,26 +36,39 @@ make -B
 ./bin/server
 ```
 
-The Server listens silently on **0.0.0.0:12345**. Use a client implementing the framing above to connect to `127.0.0.1:12345`, send messages, and disconnect. Restart the Server for another session.
+In terminal 2, from the same project directory:
 
-`make server` builds only the Server. `bin/client` is the older two-client demonstration from `test/main.c`, **not the acceptance client**, and can block against this Server.
+```bash
+./bin/client
+```
 
-## Acceptance Test Results
+Type a message and press Enter. Enter `/q` or use Ctrl-D (stdin EOF) to end the session. The server listens silently on `0.0.0.0:12345`; restart it before starting another client session. `make server` and `make client` build each executable separately.
 
-Verified with a temporary Python client using the same framing:
+## Demo
 
-- **PASS** — Build with `make -B`.
-- **PASS** — Single Client TCP connection.
-- **PASS** — `Cava → Cava`.
-- **PASS** — `Hello → Hello` on the same connection.
-- **PASS** — Disconnect → normal Server exit.
+With the server running, this reproducible CLI session sends two messages and quits:
 
-## AI-assisted Development Workflow
+```bash
+printf 'Cava\nHello\n/q\n' | ./bin/client
+```
 
-**Human:** requirements, scope control, acceptance criteria, architecture decisions, code review / request changes, and final acceptance.
+Client output:
 
-**Codex:** repository inspection, implementation within approved scope, build verification, and acceptance test execution.
+```text
+Connected
+Cava
+Hello
+Disconnected
+```
 
-## Future Work
+In an interactive terminal, the terminal also displays what you type. No application prompt is printed.
 
-Planned: multi-client support, multi-threading, and broadcast.
+## Documentation
+
+- [Architecture and ownership](docs/architecture.md)
+- [TCP message protocol](docs/protocol.md)
+- [Sprint 1: Single-client Blocking Echo Server — Spec / AD / AC](docs/sprints/sprint-01.md)
+- [Sprint 2: Interactive CLI Echo Client — Spec / AD / AC](docs/sprints/sprint-02.md)
+- [Sprint 2: Requirements Traceability Matrix](docs/sprints/sprint-02-rtm.md)
+
+Multi-client support, multi-threading, broadcast, and detailed cleanup status reporting remain future work.
