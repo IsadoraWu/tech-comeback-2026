@@ -1,0 +1,13 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TcpChat.Client.ViewModels"
+        x:Class="TcpChat.Client.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="TCP Chat System — T1.1"
+        Width="560" Height="260" MinWidth="400" MinHeight="220">
+  <StackPanel Margin="24" Spacing="16">
+    <TextBlock Text="TCP Chat System" FontSize="24" />
+    <TextBlock Text="{Binding Endpoint}" />
+    <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+  </StackPanel>
+</Window>
