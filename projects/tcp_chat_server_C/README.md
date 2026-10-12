@@ -1,4 +1,4 @@
-# TCP Chat Server
+# tcp_chat_server_C
 
 ## Overview
 
@@ -31,7 +31,7 @@ Requires GCC, Make, and POSIX development libraries on Linux/WSL2.
 From the repository root, build and start the server in terminal 1:
 
 ```bash
-cd projects/tcp_chat_server
+cd projects/tcp_chat_server_C
 make -B
 ./bin/server
 ```
