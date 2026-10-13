@@ -14,17 +14,22 @@
 |---|---|---|
 | .NET 10 solution 與共用設定 | 先前 Release 建置 PASS | 三個產品專案、兩個測試專案、global.json、Directory.Build.props。 |
 | 啟動端點參數 | 已實作，執行驗收待完成 | Client／Server 的 StartupOptions。 |
-| Server 啟停 | 先前 Linux 程序啟停 PASS | Ctrl+C 取消等待；無 bind/listen。 |
+| Server 啟停／監聽 | T1.2 Completed / Accepted | 已 bind/listen；依序 accept，Ctrl+C 取消並清理。 |
 | Avalonia Client 視窗 | Windows GUI Runtime Smoke Test PASS（SA） | SDK 10.0.401；Windows 本機複本重新建置；WSL UNC 直接執行遇到 UriFormatException，詳見 T1.1 紀錄。 |
 | Shared | 已建立空白專案 | 原有 README 預留協定契約、codec、純驗證規則。 |
-| Connect | 未實作 | 尚無 Client 連線與 Server accept。 |
+| Connect／Disconnect | T1.2 Completed / Accepted（SA，2026-10-13） | Windows Connect／Disconnect／Reconnect／Server Unavailable／Recover 五項 PASS；Connect 最長 10 秒。 |
 | Join／Chat／Leave | 未實作 | 尚無流程、狀態、訊息或 UI 命令。 |
 | Wire protocol | 未實作；詳細契約待確認 | 見 [Protocol](protocol.md)。 |
-| Timeout | 未實作；數值與行為待確認 | 原有 README 明確列為未實作。 |
-| 自動化測試 | 只有專案骨架 | 尚無單元／整合測試案例。 |
+| Timeout | T1.2 實作 10 秒 Connect Timeout | Join／Leave／Chat Request Timeout 尚未實作。 |
+| 自動化測試 | IntegrationTests 已有 TCP 生命週期案例 | 5 passed；UnitTests 尚無案例；SA 另完成 Windows GUI 五項驗收。 |
 
 ## Milestone mapping
 
-目前唯一可從程式核對的 milestone 是 **T1.1**。在文件目錄中用 `sprint-01.md` 記錄，對應「Sprint 1 / T1.1：專案骨架」；這是文件組織方式，不推定完整交流紀錄中的 Sprint 1 範圍只有 T1.1。
+| Task | 狀態 | 證據／下一步 |
+|---|---|---|
+| T1.1：可啟動骨架 | Completed / Accepted | 既有建置及 SA Windows GUI 啟動驗收。 |
+| T1.2：真實 TCP Connect／Disconnect | Completed / Accepted | 2026-10-13 SA 正式接受；Release Build 0 errors／0 warnings、TCP Integration Tests 5 passed、Windows 五項 PASS。 |
+| T1.3：最小封包收送 | Task Review；未授權實作 | [範圍、交付成果、測試及驗收](sprints/t1-2-acceptance.md#t13-task-review)。 |
+| T1.4～T1.6、T2～T7 | 尚未實作 | 維持已規劃順序，不因 T1.2 接受而自動取得實作授權。 |
 
-後續 milestone 的順序、編號與完成條件需以完整藍圖確認，再新增相應 Spec / AD / AC 與 RTM。現階段未建立虛構的 Sprint 2 完成紀錄，也未將 C 專案的單用戶 Echo 規格移植為 C# 需求。
+本次進度更新以本次 SA Acceptance Result 與既有規劃為依據，不代表完整 Sprint 1 已接受。WSL Git Repository 維持正式 Source of Truth。

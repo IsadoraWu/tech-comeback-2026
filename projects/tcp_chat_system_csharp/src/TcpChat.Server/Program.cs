@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using TcpChat.Server;
 
 if (!StartupOptions.TryParse(args, out var options, out var error))
@@ -16,13 +18,14 @@ ConsoleCancelEventHandler onCancel = (_, eventArgs) =>
 Console.CancelKeyPress += onCancel;
 try
 {
-    Console.WriteLine($"Server skeleton started. Configured endpoint: {options.Host}:{options.Port}");
-    Console.WriteLine("TCP listener is not implemented in T1.1. Press Ctrl+C to stop.");
-    await Task.Delay(Timeout.InfiniteTimeSpan, shutdown.Token);
+    var server = new TcpServer(IPAddress.Parse(options.Host), options.Port);
+    await server.RunAsync(shutdown.Token);
+    Console.WriteLine("Server stopped.");
 }
-catch (OperationCanceledException) when (shutdown.IsCancellationRequested)
+catch (SocketException socketError)
 {
-    Console.WriteLine("Server skeleton stopped.");
+    Console.Error.WriteLine($"Server startup/listener error: {socketError.Message}");
+    return 1;
 }
 finally
 {

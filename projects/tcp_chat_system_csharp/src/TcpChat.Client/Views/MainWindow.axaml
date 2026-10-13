@@ -3,11 +3,13 @@
         xmlns:vm="using:TcpChat.Client.ViewModels"
         x:Class="TcpChat.Client.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="TCP Chat System — T1.1"
+        Title="TCP Chat System — T1.2"
         Width="560" Height="260" MinWidth="400" MinHeight="220">
   <StackPanel Margin="24" Spacing="16">
     <TextBlock Text="TCP Chat System" FontSize="24" />
     <TextBlock Text="{Binding Endpoint}" />
+    <Button Content="{Binding ConnectionButtonText}"
+            IsEnabled="{Binding CanToggleConnection}" Click="OnConnectionClick" />
     <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
   </StackPanel>
 </Window>

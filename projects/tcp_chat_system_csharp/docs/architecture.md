@@ -2,60 +2,28 @@
 
 [Project home](../README.md) · [Roadmap](roadmap.md) · [Protocol](protocol.md)
 
-## Components
+## T1.2 components and dependencies
 
-| 元件 | 目前責任 |
-|---|---|
-| [TcpChatSystem.sln](../TcpChatSystem.sln) | 收錄三個產品專案與兩個測試專案。 |
-| [Directory.Build.props](../Directory.Build.props) / [global.json](../global.json) | 共用編譯設定與 SDK 選擇。 |
-| [Server Program.cs](../src/TcpChat.Server/Program.cs) | 驗證參數、註冊 Ctrl+C、等待取消、解除事件訂閱、結束。 |
-| [Server StartupOptions.cs](../src/TcpChat.Server/StartupOptions.cs) | Server 端點預設值與啟動參數解析。 |
-| [Client Program.cs](../src/TcpChat.Client/Program.cs) | 驗證參數、保存 Options、啟動 Avalonia desktop lifetime。 |
-| [Client StartupOptions.cs](../src/TcpChat.Client/StartupOptions.cs) | Client 端點預設值與啟動參數解析。 |
-| [App.axaml.cs](../src/TcpChat.Client/App.axaml.cs) / [App.axaml](../src/TcpChat.Client/App.axaml) | 建立 MainWindow、指定 ViewModel、載入 FluentTheme。 |
-| [MainWindow.axaml](../src/TcpChat.Client/Views/MainWindow.axaml) / [code-behind](../src/TcpChat.Client/Views/MainWindow.axaml.cs) | 靜態桌面畫面與編譯式繫結；code-behind 僅呼叫 InitializeComponent。 |
-| [MainWindowViewModel.cs](../src/TcpChat.Client/ViewModels/MainWindowViewModel.cs) | 提供唯讀端點字串與固定狀態字串；無命令或可變連線狀態。 |
-| [TcpChat.Shared](../src/TcpChat.Shared/TcpChat.Shared.csproj) | 空白類別庫；預留協定契約、codec、純驗證規則。 |
-| [UnitTests](../tests/TcpChat.UnitTests/TcpChat.UnitTests.csproj) / [IntegrationTests](../tests/TcpChat.IntegrationTests/TcpChat.IntegrationTests.csproj) | xUnit 骨架；兩者均參考 Client、Server、Shared，沒有測試案例。 |
+Client 與 Server 分別參考 Shared，彼此互不依賴。Shared 仍為空白，未放入 Session、Membership 或 Nickname 狀態。兩個測試專案可參考產品專案。
 
-## Dependencies
+- Server Program：啟動參數、Ctrl+C 取消、監聽錯誤及 exit code。
+- Server TcpServer：Listener、依序接受單一 Session、讀取至 EOF／錯誤、釋放 Socket、停止監聽。
+- Client TcpConnection：10 秒非同步 Connect、可取消的讀取迴圈、遠端 EOF／錯誤回報、冪等 Dispose。
+- Client MainWindowViewModel：UI 連線狀態與按鈕、本地取消／Disconnect、觀察終止；以 Connection 物件識別避免舊連線結果覆蓋新狀態。
+- MainWindow：將 Click 委派給 ViewModel；Closed 時釋放連線。網路層不依賴 View。
 
-```text
-Client ───→ Shared ←─── Server
-  ↑            ↑           ↑
-  └──── each test project ─┘
-```
+## Lifecycle
 
-Client 與 Server 彼此沒有 ProjectReference。Shared 尚未包含型別，所以啟動參數解析目前分別存在於兩個 executable；沒有共用的網路或驗證服務。
+Server：Start → Accept → Read until EOF/error → Dispose Session → Accept next；Ctrl+C 取消 Accept 或 Read，finally 停止 Listener。
 
-## Server lifecycle and ownership
+Client：Disconnected → Connecting → Connected / Not Joined → Disconnecting → Disconnected。Connecting 可 Cancel；失敗／10 秒逾時回到 Disconnected。遠端終止由持續 Read 偵測；關窗立即取消及關閉 Socket。
 
-```text
-TryParse → failure: stderr + usage → exit 1
-         → success: CancellationTokenSource
-                    → subscribe Console.CancelKeyPress
-                    → print configured endpoint
-                    → await cancellable infinite delay
-                    → Ctrl+C: cancel, suppress default termination
-                    → catch expected cancellation, print stopped
-                    → unsubscribe handler → dispose source → exit 0
-```
+GUI 操作與更新在 UI 執行緒，await 保留 UI synchronization context；Transport 使用 ConfigureAwait(false)。Dispose 可重複呼叫。取消後 Server 依自己的連線終止偵測清理，不假設與 Client 同步。
 
-CancellationTokenSource 由入口函式的 `using` 管理，事件 handler 在 `finally` 解除。此生命週期沒有 listener、accepted socket、client collection 或網路清理流程；其他非預期例外沒有通用 catch。
+## Scope boundary
 
-## Client lifecycle
+T1.2 不處理應用層 Payload；Read 僅消耗 bytes 與偵測 EOF。沒有 Framing、JSON、Join、Chat、Leave、Membership、Web API 或廣播。
 
-```text
-TryParse → failure: stderr + usage → return 1
-         → success: Program.Options
-                    → AppBuilder / platform detection
-                    → desktop lifetime / App initialization
-                    → MainWindow + MainWindowViewModel
-                    → close window → desktop lifetime ends
-```
+單一 Session 限制位於 Server accept 流程，不硬編碼使用者。額外 TCP 連線可能留在 OS backlog；本版不提供多人服務或容量回覆。沒有 heartbeat，不保證即時偵測沒有 EOF／錯誤通知的網路中斷。
 
-`Main` 標示 `[STAThread]`。自訂參數先由 TryParse 消耗，再以空陣列啟動 Avalonia lifetime。ViewModel 建構時產生端點文字，Status 永遠回傳相同字串；尚無 INotifyPropertyChanged、Connect/Send 命令、接收迴圈或背景網路工作。
-
-## Future boundaries
-
-原有 README 將協定契約、codec、純驗證規則預留在 Shared，並列出 Connect、Join、Chat、Leave、timeout 為未實作功能。服務分層、執行緒／非同步模型、UI 更新方式、連線資源 ownership 與伺服器多用戶策略仍需完整藍圖或後續決策確認。不能由目前的空白專案推定已採用某一種實作。
+T1.1 歷史驗收見 [Sprint record](sprints/sprint-01.md)。T1.2 已於 2026-10-13 經 SA Windows GUI 五項驗收，狀態為 Completed / Accepted；見 [驗收與下項 Task Review](sprints/t1-2-acceptance.md)。
